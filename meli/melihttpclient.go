@@ -35,7 +35,7 @@ func (m *MeliHttpClient) GetCategories(site string) ([]Category, error) {
 
 	res := rest.Get(url)
 
-	if res.Response != nil && res.StatusCode == http.StatusOK {
+	if isSuccess(res) {
 		err := json.Unmarshal(res.Bytes(), &categories)
 
 		if err != nil {
@@ -45,17 +45,47 @@ func (m *MeliHttpClient) GetCategories(site string) ([]Category, error) {
 
 		return categories, nil
 	} else {
-		err := MeliClientErr{Message: "Error fetching for categories"}
+		err := MeliClientErr{Message: "Error fetching for categories."}
 		return nil, err
 	}
 }
 
-func (m * MeliHttpClient) SearchItems(query string)  {
+func (m * MeliHttpClient) SearchItems(site string, query string, offset int, limit int) (*SearchItemsResult, error) {
+	var searchItems SearchItemsResult
+
+	url := fmt.Sprintf("%s/sites/%s/search?q=%s&offset=%v&limit=%v", MELI_API_ENDPOINT, site, query, offset, limit)
+
+	res := rest.Get(url)
+
+	if isSuccess(res) {
+		err := json.Unmarshal(res.Bytes(), &searchItems)
+
+		if err != nil {
+			log.Println(err)
+			return nil, err
+		}
+
+		return &searchItems, nil
+	} else {
+		err := MeliClientErr{Message: "Error searching items"}
+		return nil, err
+	}
 
 }
 
+func isSuccess(res *rest.Response) bool {
+	if res.Response != nil && res.StatusCode == http.StatusOK {
+		return true;
+	}
+	log.Println("[MeliHttpClient] Response is nil or status code is not success.")
+	log.Println(res)
+	return false;
+}
+
+// MeliClientErr
 type MeliClientErr struct {
 	Message string
+	Code string
 }
 
 func (e MeliClientErr) Error() string {
