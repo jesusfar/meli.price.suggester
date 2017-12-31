@@ -8,17 +8,21 @@ import (
 	"net/http"
 )
 
-const MELI_API_ENDPOINT  = "https://api.mercadolibre.com/"
+const MELI_API_ENDPOINT  = "https://api.mercadolibre.com"
 
 type MeliHttpClient struct {
-
+	endpoint string
 }
 
 func NewMeliHttpClient() *MeliHttpClient {
 
-	client := MeliHttpClient{}
+	client := MeliHttpClient{endpoint: MELI_API_ENDPOINT}
 
 	return &client
+}
+
+func (m *MeliHttpClient) SetEndpoint(endpoint string)  {
+	m.endpoint = endpoint
 }
 
 func (m *MeliHttpClient) GetCategories(site string) ([]Category, error) {
@@ -30,7 +34,7 @@ func (m *MeliHttpClient) GetCategories(site string) ([]Category, error) {
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/sites/%s/categories", MELI_API_ENDPOINT, site)
+	url := fmt.Sprintf("%s/sites/%s/categories", m.endpoint, site)
 
 
 	res := rest.Get(url)
@@ -53,7 +57,7 @@ func (m *MeliHttpClient) GetCategories(site string) ([]Category, error) {
 func (m * MeliHttpClient) SearchItems(site string, query string, offset int, limit int) (*SearchItemsResult, error) {
 	var searchItems SearchItemsResult
 
-	url := fmt.Sprintf("%s/sites/%s/search?q=%s&offset=%v&limit=%v", MELI_API_ENDPOINT, site, query, offset, limit)
+	url := fmt.Sprintf("%s/sites/%s/search?q=%s&offset=%v&limit=%v", m.endpoint, site, query, offset, limit)
 
 	res := rest.Get(url)
 

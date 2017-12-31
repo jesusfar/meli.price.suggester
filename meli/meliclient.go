@@ -30,8 +30,8 @@ type PageInfo struct {
 
 type SearchItem struct {
 	Id string `json:"id"`
-	Title string `json:"string"`
+	Title string `json:"title"`
 	Price float64 `json:"price"`
-	Currency string `json:"currency"`
+	Currency string `json:"currency_id"`
 	CategoryId string `json:"category_id"`
 }
