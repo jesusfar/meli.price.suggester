@@ -1,0 +1,27 @@
+#%RAML 1.0
+---
+title: Meli APi
+version: v1
+protocols: [ HTTP, HTTPS ]
+baseUri: https://api.mercadolibre.com/
+mediaType: application/json
+
+/sites:
+  /{site}:
+    /categories:
+      get:
+        description: Categories
+        responses:
+          200:
+            body:
+              application/json:
+                example: !include Get-Categories-MLA.json
+
+    /search:
+      get:
+        description: Search Items
+        responses:
+          200:
+            body:
+              application/json:
+                example: !include Search-By-Caterogry-MLA1051.json
