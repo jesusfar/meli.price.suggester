@@ -1,4 +1,4 @@
-package suggestor
+package suggester
 
 import "math"
 

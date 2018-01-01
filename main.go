@@ -3,25 +3,50 @@ package main
 import (
 	"os"
 	"log"
-	"github.com/jesusfar/meli.price.suggestor/suggestor"
 	"github.com/jesusfar/meli.price.suggestor/meli"
 	"fmt"
+	"github.com/jesusfar/meli.price.suggestor/suggester"
 )
 
 func main() {
 
 	args := os.Args[1:]
 
-	s := suggestor.NewSuggestor()
+	if len(args) == 0 {
+		printHelp()
+		return
+	}
+
+	s := suggester.NewSuggester()
 
 	switch args[0] {
-	case suggestor.FETCH_DATA_SET:
+	case suggester.FETCH_DATA_SET:
 		log.Println("[Suggestor] Fetch dataset")
 		s.FetchDataSet(meli.SITE_MLA)
+	case suggester.TRAIN_MODEL:
+		log.Println("[Suggestor] Train model")
+		s.Train()
+	case suggester.PREDICT:
+		if len(args) >= 2 {
+			categoryId := args[1]
+			result, err := s.Predict(categoryId)
+			if err != nil {
+				fmt.Println(err)
+				break
+			}
+			fmt.Printf("Price suggested: %f", result)
+		} else {
+			printHelp()
+		}
+
 	default:
-		log.Println("[Suggestor] Error action not defined.")
+		printHelp()
 	}
 
 	var input string
 	fmt.Scanln(&input)
+}
+
+func printHelp() {
+	fmt.Println("Meli Price Suggestor help.")
 }
