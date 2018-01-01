@@ -1,6 +1,6 @@
 package meli
 
-const(
+const (
 	SITE_MLA string = "MLA"
 )
 
@@ -11,27 +11,27 @@ type MeliClient interface {
 }
 
 type Category struct {
-	Id string
+	Id   string
 	Name string
 }
 
 type SearchItemsResult struct {
-	SiteId string `json:"site_id"`
-	Paging PageInfo     `json:"paging"`
+	SiteId  string       `json:"site_id"`
+	Paging  PageInfo     `json:"paging"`
 	Results []SearchItem `json:"results"`
 }
 
 type PageInfo struct {
-	Total int `json:"total"`
-	Offset int `json:"offset"`
-	Limit int `json:"limit"`
+	Total          int `json:"total"`
+	Offset         int `json:"offset"`
+	Limit          int `json:"limit"`
 	PrimaryResults int `json:"primary_results"`
 }
 
 type SearchItem struct {
-	Id string `json:"id"`
-	Title string `json:"title"`
-	Price float64 `json:"price"`
-	Currency string `json:"currency_id"`
-	CategoryId string `json:"category_id"`
+	Id         string  `json:"id"`
+	Title      string  `json:"title"`
+	Price      float64 `json:"price"`
+	Currency   string  `json:"currency_id"`
+	CategoryId string  `json:"category_id"`
 }

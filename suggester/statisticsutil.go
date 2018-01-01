@@ -18,7 +18,7 @@ func CalcSampleSize(total int) float64 {
 	var N float64 = float64(total)
 
 	// Formula to calc representative sample
-	n = (math.Pow(z, 2)*math.Pow(o, 2)*N)/(math.Pow(e, 2)*(N-1)+math.Pow(z, 2)*math.Pow(o, 2))
+	n = (math.Pow(z, 2) * math.Pow(o, 2) * N) / (math.Pow(e, 2)*(N-1) + math.Pow(z, 2)*math.Pow(o, 2))
 
-	return n*100
+	return n * 100
 }

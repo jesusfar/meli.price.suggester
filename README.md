@@ -1,1 +1,1 @@
-# Meli Price Suggestor
+# Meli Price suggester

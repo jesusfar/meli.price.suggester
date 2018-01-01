@@ -1,31 +1,31 @@
 package suggester
 
 import (
-	"github.com/jesusfar/meli.price.suggestor/meli"
-	"log"
-	"io/ioutil"
-	"os"
-	"fmt"
 	"encoding/json"
-	"sync"
 	"errors"
+	"fmt"
+	"github.com/jesusfar/meli.price.suggester/meli"
+	"io/ioutil"
+	"log"
+	"os"
+	"sync"
 )
 
 const (
-	FETCH_DATA_SET string = "fetchDataSet"
-	TRAIN_MODEL string = "train"
-	PREDICT string = "predict"
-	DATA_SET_PATH = "./dataset/"
-	DATA_TRAINED_PATH = "./datatrained/"
-	DATA_TRAINED_FILE_PATH = DATA_TRAINED_PATH + "datatrained.json"
+	FETCH_DATA_SET         string = "fetchDataSet"
+	TRAIN_MODEL            string = "train"
+	PREDICT                string = "predict"
+	DATA_SET_PATH                 = "./dataset/"
+	DATA_TRAINED_PATH             = "./datatrained/"
+	DATA_TRAINED_FILE_PATH        = DATA_TRAINED_PATH + "datatrained.json"
 )
 
 type DataTrained struct {
 	sync.RWMutex
-	data map[string]TrainedCategory
+	data map[string]CategoryPriceTrained
 }
 
-type TrainedCategory struct {
+type CategoryPriceTrained struct {
 	Max       float64
 	Suggested float64
 	Min       float64
@@ -33,27 +33,39 @@ type TrainedCategory struct {
 	Total     float64
 }
 
-type Suggester struct {
-	meliClient meli.MeliClient
+type CategoryPriceSuggested struct {
+	Max       float64 `json:"max"`
+	Suggested float64 `json:"suggested"`
+	Min       float64 `json:"min"`
 }
 
+type Suggester struct {
+	meliClient          meli.MeliClient
+	inMemoryDataTrained *DataTrained
+}
+
+// NewSuggester returns a suggester for category price.
 func NewSuggester() *Suggester {
 	meliClient := meli.NewMeliHttpClient()
 	//TODO remove this
 	meliClient.SetEndpoint("http://localhost:3000")
 
-	suggester := Suggester{
+	suggester := &Suggester{
 		meliClient: meliClient,
 	}
-	return &suggester
+
+	// LoadDataTrained if exists data trained file
+	suggester.LoadDataTrained()
+
+	return suggester
 }
 
-func (s *Suggester) FetchDataSet(site string)  {
+func (s *Suggester) FetchDataSet(site string) {
 
 	// Create folder if not exists
 	createFolder(DATA_SET_PATH)
 
-	// Fetch categories for site MLA
+	// Fetch categories for site
 	categories, err := s.meliClient.GetCategories(site)
 
 	if err != nil {
@@ -69,44 +81,44 @@ func (s *Suggester) FetchDataSet(site string)  {
 	}
 }
 
-func (s *Suggester) Predict(categoryId string) (float64, error) {
-	var dataTrained map[string]TrainedCategory
-	var suggested float64
+// Predict a price by categoryId
+func (s *Suggester) Predict(categoryId string) (CategoryPriceSuggested, error) {
+	var suggested CategoryPriceSuggested
 
-	dataTrainedFile, err := ioutil.ReadFile(DATA_TRAINED_FILE_PATH)
-
-	if err != nil {
-		return suggested, err
+	// Try to load data trained.
+	if s.inMemoryDataTrained == nil {
+		err := s.LoadDataTrained()
+		if err != nil {
+			log.Println("[Predict] Error loading data trained.")
+			return suggested, err
+		}
 	}
 
-	err = json.Unmarshal(dataTrainedFile, &dataTrained)
-
-	if err != nil {
-		return suggested, err
-	}
-
-	result, ok := dataTrained[categoryId]
+	result, ok := s.inMemoryDataTrained.data[categoryId]
 
 	if ok {
-		suggested = result.Suggested
+		suggested.Max = result.Max
+		suggested.Suggested = result.Suggested
+		suggested.Min = result.Min
 		return suggested, nil
 	} else {
-		err = errors.New("CategoryId not found")
+		err := errors.New(fmt.Sprintf("Category: %s not found.", categoryId))
 		return suggested, err
 	}
 }
 
-func (s *Suggester) Train()  {
+// Train reads the dataSet and prepare the model to predict the price by categoryID
+func (s *Suggester) Train() {
 
 	wgItemProducer := &sync.WaitGroup{}
 	wgItemConsumer := &sync.WaitGroup{}
 
-	dataTrained := &DataTrained{data: make(map[string]TrainedCategory)}
+	dataTrained := &DataTrained{data: make(map[string]CategoryPriceTrained)}
 
 	outPutItemChannel := make(chan *meli.SearchItem, 20)
 
 	// Read dataSet path
-	dataSetFolder, err :=ioutil.ReadDir(DATA_SET_PATH)
+	dataSetFolder, err := ioutil.ReadDir(DATA_SET_PATH)
 
 	if err != nil {
 		log.Println("[Train] Error reading ./dataset/ folder")
@@ -125,9 +137,6 @@ func (s *Suggester) Train()  {
 		}
 	}
 
-
-
-
 	log.Println("[Train] Waiting to finish")
 
 	wgItemProducer.Wait()
@@ -135,18 +144,54 @@ func (s *Suggester) Train()  {
 
 	wgItemConsumer.Wait()
 
-
-	dataTrainedForSave, err := json.Marshal(dataTrained.data)
+	dataTrainedForSave, _ := json.Marshal(dataTrained.data)
 
 	createFolder(DATA_TRAINED_PATH)
 
-	ioutil.WriteFile(DATA_TRAINED_FILE_PATH, dataTrainedForSave, 0777)
+	err = ioutil.WriteFile(DATA_TRAINED_FILE_PATH, dataTrainedForSave, 0777)
+
+	if err != nil {
+		log.Println("[Train] Error writing data trained.")
+		log.Println(err)
+	}
+
+	// Reset dataTrained in Suggester
+	s.inMemoryDataTrained = nil
 
 	log.Println("[Train] Train finished")
 }
 
-func (s *Suggester) fetchItemsByCategory(site string, categoryId string)  {
-	query := "category="+categoryId
+// LoadDataTrained loads data trained from file if exist and keep in memory.
+func (s *Suggester) LoadDataTrained() error  {
+	var dataTrained map[string]CategoryPriceTrained
+
+	dataTrainedFile, err := ioutil.ReadFile(DATA_TRAINED_FILE_PATH)
+
+	if err != nil {
+		log.Printf("[LoadDataTrained][Notice] Data trained file: %s does not exist.", DATA_TRAINED_FILE_PATH)
+		return err
+	}
+
+	err = json.Unmarshal(dataTrainedFile, &dataTrained)
+
+	if err != nil {
+		log.Printf("[LoadDataTrained][Notice] Error Unmarshal file: %d ", DATA_TRAINED_FILE_PATH)
+		log.Println(err)
+		return err
+	}
+
+	inMemoryDataTrained := &DataTrained{data: dataTrained}
+
+	// Load dataTrained
+	s.inMemoryDataTrained = inMemoryDataTrained
+
+	log.Print("[LoadDataTrained][Notice]  Data trained load [OK]")
+
+	return nil
+}
+
+func (s *Suggester) fetchItemsByCategory(site string, categoryId string) {
+	query := "category=" + categoryId
 	offset := 0
 	limit := 50
 
@@ -183,7 +228,7 @@ func (s *Suggester) fetchItemsByCategory(site string, categoryId string)  {
 	}
 }
 
-func saveDataSet(searchItems []meli.SearchItem, categoryId string, index int)  {
+func saveDataSet(searchItems []meli.SearchItem, categoryId string, index int) {
 
 	itemJson, _ := json.Marshal(searchItems)
 
@@ -194,16 +239,15 @@ func saveDataSet(searchItems []meli.SearchItem, categoryId string, index int)  {
 	}
 }
 
-func createFolder(path string)  {
+func createFolder(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		os.Mkdir(path, 0777)
 	}
 }
 
-
 func trainModel(dataTrained *DataTrained, outPutItemChannel <-chan *meli.SearchItem, wg *sync.WaitGroup) {
 
-	var dataTrain TrainedCategory
+	var dataTrain CategoryPriceTrained
 
 	// Iterate while outPutItemChannel is open
 	for itemInfo := range outPutItemChannel {
@@ -227,22 +271,22 @@ func trainModel(dataTrained *DataTrained, outPutItemChannel <-chan *meli.SearchI
 
 			sum := value.Sum + itemInfo.Price
 			total := value.Total + 1
-			suggested := sum/total
+			suggested := sum / total
 
-			dataTrain = TrainedCategory{
-				Max: max,
-				Min: min,
-				Sum: sum,
-				Total: total,
+			dataTrain = CategoryPriceTrained{
+				Max:       max,
+				Min:       min,
+				Sum:       sum,
+				Total:     total,
 				Suggested: suggested,
 			}
 
 		} else {
-			dataTrain = TrainedCategory{
-				Max: itemInfo.Price,
-				Min: itemInfo.Price,
-				Sum: itemInfo.Price,
-				Total: 1,
+			dataTrain = CategoryPriceTrained{
+				Max:       itemInfo.Price,
+				Min:       itemInfo.Price,
+				Sum:       itemInfo.Price,
+				Total:     1,
 				Suggested: itemInfo.Price,
 			}
 		}
@@ -298,7 +342,7 @@ func readItemFileForCategory(categoryId string, filePath string, outPutItemChann
 		log.Printf("[readItemCategory:%s] Error Unmarshal file: %s", categoryId, filePath)
 	}
 
-	for index, item := range items  {
+	for index, item := range items {
 		log.Printf("[readItemFile] Sending index: %d  item: %s", index, item.Id)
 		itemToSend := item
 		outPutItemChannel <- &itemToSend
