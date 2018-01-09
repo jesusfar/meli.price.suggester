@@ -6,6 +6,7 @@ import (
 	"github.com/mercadolibre/golang-restclient/rest"
 	"log"
 	"net/http"
+	"os"
 )
 
 const MELI_API_ENDPOINT = "https://api.mercadolibre.com"
@@ -16,7 +17,15 @@ type MeliHttpClient struct {
 
 func NewMeliHttpClient() *MeliHttpClient {
 
-	client := MeliHttpClient{endpoint: MELI_API_ENDPOINT}
+	endpoint := os.Getenv("MELI_ENDPOINT")
+
+	if endpoint == "" {
+		endpoint = MELI_API_ENDPOINT
+	}
+
+	log.Println("[MeliHttpClient] Set endpoint: " + endpoint)
+
+	client := MeliHttpClient{endpoint: endpoint}
 
 	return &client
 }

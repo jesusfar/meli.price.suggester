@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	FETCH_DATA_SET         string = "fetchDataSet"
+	FETCH_DATA_SET         string = "fetch"
 	TRAIN_MODEL            string = "train"
-	PREDICT                string = "predict"
+	SUGGEST                string = "suggest"
+	SERVE                  string = "serve"
 	DATA_SET_PATH                 = "./dataset/"
 	DATA_TRAINED_PATH             = "./datatrained/"
 	DATA_TRAINED_FILE_PATH        = DATA_TRAINED_PATH + "datatrained.json"
@@ -47,8 +48,6 @@ type Suggester struct {
 // NewSuggester returns a suggester for category price.
 func NewSuggester() *Suggester {
 	meliClient := meli.NewMeliHttpClient()
-	//TODO remove this
-	meliClient.SetEndpoint("http://localhost:3000")
 
 	suggester := &Suggester{
 		meliClient: meliClient,
@@ -60,6 +59,7 @@ func NewSuggester() *Suggester {
 	return suggester
 }
 
+// FetchDataSet fetches items from Meli and save data in dataset folder
 func (s *Suggester) FetchDataSet(site string) {
 
 	// Create folder if not exists
@@ -81,8 +81,8 @@ func (s *Suggester) FetchDataSet(site string) {
 	}
 }
 
-// Predict a price by categoryId
-func (s *Suggester) Predict(categoryId string) (CategoryPriceSuggested, error) {
+// Suggest a price for categoryId
+func (s *Suggester) Suggest(categoryId string) (CategoryPriceSuggested, error) {
 	var suggested CategoryPriceSuggested
 
 	// Try to load data trained.
@@ -162,7 +162,7 @@ func (s *Suggester) Train() {
 }
 
 // LoadDataTrained loads data trained from file if exist and keep in memory.
-func (s *Suggester) LoadDataTrained() error  {
+func (s *Suggester) LoadDataTrained() error {
 	var dataTrained map[string]CategoryPriceTrained
 
 	dataTrainedFile, err := ioutil.ReadFile(DATA_TRAINED_FILE_PATH)
