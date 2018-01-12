@@ -9,6 +9,7 @@ type MeliClient interface {
 	GetCategories(site string) ([]Category, error)
 	SearchItems(site string, query string, offset int, limit int) (*SearchItemsResult, error)
 	SetEndpoint(endpoint string)
+	GetEndpoint() string
 }
 
 type Category struct {

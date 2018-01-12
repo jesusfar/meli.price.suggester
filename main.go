@@ -3,11 +3,10 @@ package main
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/jesusfar/meli.price.suggester/api"
 	"github.com/jesusfar/meli.price.suggester/meli"
 	"github.com/jesusfar/meli.price.suggester/suggester"
-	"log"
 	"os"
-	"github.com/jesusfar/meli.price.suggester/api"
 )
 
 func printHelp() {
@@ -22,6 +21,7 @@ Commands:
   fetch            Fetch data set by categories
   train	           Train the data set
   suggest          Suggest a price given a category
+  clean            Clean data set and data trained folders
   serve            Serve a http service
   help             Help Meli Price Suggester
 
@@ -58,10 +58,8 @@ func main() {
 
 	switch args[0] {
 	case suggester.FETCH_DATA_SET:
-		log.Println("[suggester] Fetch dataset")
 		s.FetchDataSet(meli.SITE_MLA)
 	case suggester.TRAIN_MODEL:
-		log.Println("[suggester] Train model")
 		s.Train()
 	case suggester.SUGGEST:
 		if len(args) >= 2 {
@@ -82,6 +80,8 @@ func main() {
 
 	case suggester.SERVE:
 		serve()
+	case suggester.CLEAN:
+		s.Clean()
 	default:
 		printHelp()
 	}

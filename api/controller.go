@@ -1,10 +1,10 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
-	"net/http"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/jesusfar/meli.price.suggester/suggester"
+	"net/http"
 )
 
 type SuggesterCtrl struct {

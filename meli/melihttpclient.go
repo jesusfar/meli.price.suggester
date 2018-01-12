@@ -7,12 +7,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"github.com/jesusfar/meli.price.suggester/util"
 )
 
 const MELI_API_ENDPOINT = "https://api.mercadolibre.com"
 
 type MeliHttpClient struct {
 	endpoint string
+	logger *util.Logger
 }
 
 func NewMeliHttpClient() *MeliHttpClient {
@@ -23,15 +25,20 @@ func NewMeliHttpClient() *MeliHttpClient {
 		endpoint = MELI_API_ENDPOINT
 	}
 
-	log.Println("[MeliHttpClient] Set endpoint: " + endpoint)
-
-	client := MeliHttpClient{endpoint: endpoint}
+	client := MeliHttpClient{
+		endpoint: endpoint,
+		logger: util.NewLogger(),
+	}
 
 	return &client
 }
 
 func (m *MeliHttpClient) SetEndpoint(endpoint string) {
 	m.endpoint = endpoint
+}
+
+func (m *MeliHttpClient) GetEndpoint() string {
+	return m.endpoint
 }
 
 func (m *MeliHttpClient) GetCategories(site string) ([]Category, error) {
@@ -47,7 +54,7 @@ func (m *MeliHttpClient) GetCategories(site string) ([]Category, error) {
 
 	res := rest.Get(url)
 
-	if isSuccess(res) {
+	if m.isSuccess(res) {
 		err := json.Unmarshal(res.Bytes(), &categories)
 
 		if err != nil {
@@ -69,11 +76,11 @@ func (m *MeliHttpClient) SearchItems(site string, query string, offset int, limi
 
 	res := rest.Get(url)
 
-	if isSuccess(res) {
+	if m.isSuccess(res) {
 		err := json.Unmarshal(res.Bytes(), &searchItems)
 
 		if err != nil {
-			log.Println(err)
+			m.logger.Debug(err)
 			return nil, err
 		}
 
@@ -85,19 +92,18 @@ func (m *MeliHttpClient) SearchItems(site string, query string, offset int, limi
 
 }
 
-func isSuccess(res *rest.Response) bool {
+func (m *MeliHttpClient) isSuccess(res *rest.Response) bool {
 	if res.Response != nil && res.StatusCode == http.StatusOK {
 		return true
 	}
-	log.Println("[MeliHttpClient] Response is nil or status code is not success.")
-	log.Println(res)
+	m.logger.Warning("[MeliHttpClient] Response is nil or status code is not success.")
+	m.logger.Debug(res)
 	return false
 }
 
 // MeliClientErr
 type MeliClientErr struct {
 	Message string
-	Code    string
 }
 
 func (e MeliClientErr) Error() string {

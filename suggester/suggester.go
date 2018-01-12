@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jesusfar/meli.price.suggester/meli"
+	"github.com/jesusfar/meli.price.suggester/util"
 	"io/ioutil"
-	"log"
 	"os"
 	"sync"
 )
@@ -16,6 +16,7 @@ const (
 	TRAIN_MODEL            string = "train"
 	SUGGEST                string = "suggest"
 	SERVE                  string = "serve"
+	CLEAN                  string = "clean"
 	DATA_SET_PATH                 = "./dataset/"
 	DATA_TRAINED_PATH             = "./datatrained/"
 	DATA_TRAINED_FILE_PATH        = DATA_TRAINED_PATH + "datatrained.json"
@@ -43,6 +44,7 @@ type CategoryPriceSuggested struct {
 type Suggester struct {
 	meliClient          meli.MeliClient
 	inMemoryDataTrained *DataTrained
+	logger              *util.Logger
 }
 
 // NewSuggester returns a suggester for category price.
@@ -51,6 +53,7 @@ func NewSuggester() *Suggester {
 
 	suggester := &Suggester{
 		meliClient: meliClient,
+		logger:     util.NewLogger(),
 	}
 
 	// LoadDataTrained if exists data trained file
@@ -62,6 +65,8 @@ func NewSuggester() *Suggester {
 // FetchDataSet fetches items from Meli and save data in dataset folder
 func (s *Suggester) FetchDataSet(site string) {
 
+	s.logger.Info("[FetchDataSet] Fetching data set ...")
+
 	// Create folder if not exists
 	createFolder(DATA_SET_PATH)
 
@@ -69,16 +74,19 @@ func (s *Suggester) FetchDataSet(site string) {
 	categories, err := s.meliClient.GetCategories(site)
 
 	if err != nil {
-		log.Println("[FetchDataSet] Error fetching categories")
+		s.logger.Info("[FetchDataSet] Error fetching categories. Please see in DEBUG mode")
+		s.logger.Debug(err)
 		return
 	}
 
 	// Foreach category we need to search items related
 	for _, category := range categories {
-		log.Println("[FetchDataSet] Fetching items for category: " + category.Id)
+		s.logger.Debug("[FetchDataSet] Fetching items for category: " + category.Id)
 
 		go s.fetchItemsByCategory(site, category.Id)
 	}
+
+	s.logger.Info("[FetchDataSet] Fetching done.")
 }
 
 // Suggest a price for categoryId
@@ -89,7 +97,7 @@ func (s *Suggester) Suggest(categoryId string) (CategoryPriceSuggested, error) {
 	if s.inMemoryDataTrained == nil {
 		err := s.LoadDataTrained()
 		if err != nil {
-			log.Println("[Predict] Error loading data trained.")
+			s.logger.Warning("[Predict] Error loading data trained.")
 			return suggested, err
 		}
 	}
@@ -121,23 +129,23 @@ func (s *Suggester) Train() {
 	dataSetFolder, err := ioutil.ReadDir(DATA_SET_PATH)
 
 	if err != nil {
-		log.Println("[Train] Error reading ./dataset/ folder")
+		s.logger.Warning("[Train] Error reading ./dataset/ folder")
 	}
 
 	for _, file := range dataSetFolder {
 		if file.IsDir() {
 			categoryId := file.Name()
-			log.Println("[Train] Starting train dataset for category: " + categoryId)
+			s.logger.Debug("[Train] Starting train dataset for category: " + categoryId)
 
 			wgItemProducer.Add(1)
-			go readItemFilesForCategory(categoryId, outPutItemChannel, wgItemProducer)
+			go s.readItemFilesForCategory(categoryId, outPutItemChannel, wgItemProducer)
 
 			wgItemConsumer.Add(1)
-			go trainModel(dataTrained, outPutItemChannel, wgItemConsumer)
+			go s.trainModel(dataTrained, outPutItemChannel, wgItemConsumer)
 		}
 	}
 
-	log.Println("[Train] Waiting to finish")
+	s.logger.Info("[Train] Waiting to finish")
 
 	wgItemProducer.Wait()
 	close(outPutItemChannel)
@@ -151,14 +159,14 @@ func (s *Suggester) Train() {
 	err = ioutil.WriteFile(DATA_TRAINED_FILE_PATH, dataTrainedForSave, 0777)
 
 	if err != nil {
-		log.Println("[Train] Error writing data trained.")
-		log.Println(err)
+		s.logger.Warning("[Train] Error writing data trained.")
+		s.logger.Debug(err)
 	}
 
 	// Reset dataTrained in Suggester
 	s.inMemoryDataTrained = nil
 
-	log.Println("[Train] Train finished")
+	s.logger.Info("[Train] Train finished")
 }
 
 // LoadDataTrained loads data trained from file if exist and keep in memory.
@@ -168,15 +176,15 @@ func (s *Suggester) LoadDataTrained() error {
 	dataTrainedFile, err := ioutil.ReadFile(DATA_TRAINED_FILE_PATH)
 
 	if err != nil {
-		log.Printf("[LoadDataTrained][Notice] Data trained file: %s does not exist.", DATA_TRAINED_FILE_PATH)
+		s.logger.Warning("[LoadDataTrained][Notice] Data trained file: %s does not exist.", DATA_TRAINED_FILE_PATH)
 		return err
 	}
 
 	err = json.Unmarshal(dataTrainedFile, &dataTrained)
 
 	if err != nil {
-		log.Printf("[LoadDataTrained][Notice] Error Unmarshal file: %d ", DATA_TRAINED_FILE_PATH)
-		log.Println(err)
+		s.logger.Warning(fmt.Sprintf("[LoadDataTrained][Notice] Error Unmarshal file: %d ", DATA_TRAINED_FILE_PATH))
+		s.logger.Debug(err)
 		return err
 	}
 
@@ -185,7 +193,7 @@ func (s *Suggester) LoadDataTrained() error {
 	// Load dataTrained
 	s.inMemoryDataTrained = inMemoryDataTrained
 
-	log.Print("[LoadDataTrained][Notice]  Data trained load [OK]")
+	s.logger.Info("[LoadDataTrained][Notice]  Data trained load [OK]")
 
 	return nil
 }
@@ -200,16 +208,16 @@ func (s *Suggester) fetchItemsByCategory(site string, categoryId string) {
 	searchResult, err := s.meliClient.SearchItems(site, query, offset, limit)
 
 	if err != nil {
-		log.Println("[searchItemsByCategory] Error searching items.")
+		s.logger.Warning("[searchItemsByCategory] Error searching items.")
 		return
 	}
 
 	// Save first DataSet
-	saveDataSet(searchResult.Results, categoryId, 0)
+	s.saveDataSet(searchResult.Results, categoryId, 0)
 
-	sampleSize := int(CalcSampleSize(searchResult.Paging.Total))
+	sampleSize := int(util.CalcSampleSize(searchResult.Paging.Total))
 
-	log.Printf("[fetchItemsByCategory] Sample Size: %d", sampleSize)
+	s.logger.Info(fmt.Sprintf("[fetchItemsByCategory] Sample Size: %d", sampleSize))
 
 	offset = limit
 
@@ -218,24 +226,41 @@ func (s *Suggester) fetchItemsByCategory(site string, categoryId string) {
 		searchResult, err := s.meliClient.SearchItems(site, query, offset, limit)
 
 		if err != nil {
-			log.Println("[searchItemsByCategory] Error searching items.")
+			s.logger.Warning("[searchItemsByCategory] Error searching items.")
+			s.logger.Debug(err)
 			return
 		}
 
-		saveDataSet(searchResult.Results, categoryId, offset)
+		s.saveDataSet(searchResult.Results, categoryId, offset)
 
 		offset += limit
 	}
 }
 
-func saveDataSet(searchItems []meli.SearchItem, categoryId string, index int) {
+// Clean removes data set and data trained folders.
+func (s *Suggester) Clean() {
+	s.logger.Info("[Clean] Cleaning data..")
+	s.cleanDirectory(DATA_SET_PATH)
+	s.cleanDirectory(DATA_TRAINED_PATH)
+	s.logger.Info("[Clean] Done.")
+}
+
+func (s *Suggester) cleanDirectory(path string) {
+	err := os.RemoveAll(path)
+	if err != nil {
+		s.logger.Warning(err)
+	}
+}
+
+func (s *Suggester) saveDataSet(searchItems []meli.SearchItem, categoryId string, index int) {
 
 	itemJson, _ := json.Marshal(searchItems)
 
 	fileDest := fmt.Sprintf("%s/%s/%s-%d.json", DATA_SET_PATH, categoryId, categoryId, index)
 	err := ioutil.WriteFile(fileDest, itemJson, 0777)
 	if err != nil {
-		log.Println(err)
+		s.logger.Warning("[saveDataSet] Error saving dataset.")
+		s.logger.Debug(err)
 	}
 }
 
@@ -245,13 +270,13 @@ func createFolder(path string) {
 	}
 }
 
-func trainModel(dataTrained *DataTrained, outPutItemChannel <-chan *meli.SearchItem, wg *sync.WaitGroup) {
+func (s *Suggester) trainModel(dataTrained *DataTrained, outPutItemChannel <-chan *meli.SearchItem, wg *sync.WaitGroup) {
 
 	var dataTrain CategoryPriceTrained
 
 	// Iterate while outPutItemChannel is open
 	for itemInfo := range outPutItemChannel {
-		log.Printf("[trainModel] Item: %s", itemInfo.Id)
+		s.logger.Debug(fmt.Sprintf("[trainModel] Item: %s", itemInfo.Id))
 
 		categoryId := itemInfo.CategoryId
 
@@ -297,19 +322,20 @@ func trainModel(dataTrained *DataTrained, outPutItemChannel <-chan *meli.SearchI
 	}
 
 	wg.Done()
-	log.Println("[trainModel] Done.")
+	s.logger.Debug("[trainModel] Done.")
 }
 
-func readItemFilesForCategory(categoryId string, outPutItemChannel chan<- *meli.SearchItem, wg *sync.WaitGroup) {
+func (s *Suggester) readItemFilesForCategory(categoryId string, outPutItemChannel chan<- *meli.SearchItem, wg *sync.WaitGroup) {
 
 	categoryDataSetPath := DATA_SET_PATH + categoryId
 
-	log.Printf("[readCategory:%s] Reading dataset from: %s", categoryId, categoryDataSetPath)
+	s.logger.Debug(fmt.Sprintf("[readCategory:%s] Reading dataset from: %s", categoryId, categoryDataSetPath))
 
 	dataSetFiles, err := ioutil.ReadDir(categoryDataSetPath)
 
 	if err != nil {
-		log.Printf("[readCategory:%s] Error reading dataset: %s", categoryId, categoryDataSetPath)
+		s.logger.Warning("[readCategory:%s] Error reading dataset: %s", categoryId, categoryDataSetPath)
+		s.logger.Debug(err)
 		return
 	}
 
@@ -317,33 +343,35 @@ func readItemFilesForCategory(categoryId string, outPutItemChannel chan<- *meli.
 		if !file.IsDir() {
 			filePath := categoryDataSetPath + "/" + file.Name()
 
-			readItemFileForCategory(categoryId, filePath, outPutItemChannel)
+			s.readItemFileForCategory(categoryId, filePath, outPutItemChannel)
 		}
 	}
 
 	wg.Done()
 }
 
-func readItemFileForCategory(categoryId string, filePath string, outPutItemChannel chan<- *meli.SearchItem) {
+func (s *Suggester) readItemFileForCategory(categoryId string, filePath string, outPutItemChannel chan<- *meli.SearchItem) {
 
 	var items []meli.SearchItem
 
-	log.Printf("[readItemCategory:%s] Reading file: %s", categoryId, filePath)
+	s.logger.Debug(fmt.Sprintf("[readItemCategory:%s] Reading file: %s", categoryId, filePath))
 
 	file, err := ioutil.ReadFile(filePath)
 
 	if err != nil {
-		log.Printf("[readItemCategory:%s] Error reading file: %s", categoryId, filePath)
+		s.logger.Warning(fmt.Sprintf("[readItemCategory:%s] Error reading file: %s", categoryId, filePath))
+		s.logger.Debug(err)
 	}
 
 	err = json.Unmarshal(file, &items)
 
 	if err != nil {
-		log.Printf("[readItemCategory:%s] Error Unmarshal file: %s", categoryId, filePath)
+		s.logger.Warning(fmt.Sprintf("[readItemCategory:%s] Error Unmarshal file: %s", categoryId, filePath))
+		s.logger.Debug(err)
 	}
 
 	for index, item := range items {
-		log.Printf("[readItemFile] Sending index: %d  item: %s", index, item.Id)
+		s.logger.Debug(fmt.Sprintf("[readItemFile] Sending index: %d  item: %s", index, item.Id))
 		itemToSend := item
 		outPutItemChannel <- &itemToSend
 	}
