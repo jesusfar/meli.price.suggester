@@ -82,8 +82,8 @@ func (s *Suggester) FetchDataSet(site string) {
 	// Foreach category we need to search items related
 	for _, category := range categories {
 		s.logger.Debug("[FetchDataSet] Fetching items for category: " + category.Id)
-
-		go s.fetchItemsByCategory(site, category.Id)
+		//go s.fetchItemsByCategory(site, category.Id)
+		go s.fetchItemsBySystematicRandomSampling(site, category.Id)
 	}
 
 	s.logger.Info("[FetchDataSet] Fetching done.")
@@ -188,17 +188,24 @@ func (s *Suggester) LoadDataTrained() error {
 		return err
 	}
 
-	inMemoryDataTrained := &DataTrained{data: dataTrained}
-
-	// Load dataTrained
-	s.inMemoryDataTrained = inMemoryDataTrained
+	s.SetInMemoryDataTrained(dataTrained)
 
 	s.logger.Info("[LoadDataTrained][Notice]  Data trained load [OK]")
 
 	return nil
 }
 
-func (s *Suggester) fetchItemsByCategory(site string, categoryId string) {
+func (s *Suggester) SetInMemoryDataTrained(data map[string]CategoryPriceTrained) {
+	s.logger.Info("[SetInMemoryDataTrained] Set in memory data trained.")
+	s.inMemoryDataTrained = &DataTrained{data: data}
+}
+
+func (s *Suggester) GetInMemoryDataTrained() *DataTrained {
+	return s.inMemoryDataTrained
+}
+
+func (s *Suggester) fetchItemsBySystematicRandomSampling(site string, categoryId string) {
+
 	query := "category=" + categoryId
 	offset := 0
 	limit := 50
@@ -208,22 +215,39 @@ func (s *Suggester) fetchItemsByCategory(site string, categoryId string) {
 	searchResult, err := s.meliClient.SearchItems(site, query, offset, limit)
 
 	if err != nil {
-		s.logger.Warning("[searchItemsByCategory] Error searching items.")
+		s.logger.Warning("[fetchRandomItemsByCategory] Error searching items.")
 		return
 	}
 
 	// Save first DataSet
 	s.saveDataSet(searchResult.Results, categoryId, 0)
 
-	sampleSize := int(util.CalcSampleSize(searchResult.Paging.Total))
+	// Fetch next items by Systematic Random Sampling
 
-	s.logger.Info(fmt.Sprintf("[fetchItemsByCategory] Sample Size: %d", sampleSize))
+	// Get total sampling
+	totalItems := searchResult.Paging.Total
+	s.logger.Info(fmt.Sprintf("[fetchItemsByCategory][%s] Total Items: %d", categoryId, totalItems))
 
-	offset = limit
+	// Get sample size
+	sampleSize := util.CalcSampleSizeMethod2(totalItems)
+	s.logger.Info(fmt.Sprintf("[fetchItemsByCategory][%s] Sample Size: %d", categoryId, sampleSize))
 
-	for offset < sampleSize {
-		// Search Item offset
-		searchResult, err := s.meliClient.SearchItems(site, query, offset, limit)
+	// Calc P elements p = N / n where N is total items and n is sample size
+	p := totalItems / sampleSize
+	s.logger.Info(fmt.Sprintf("[fetchItemsByCategory][%s] Proportion of elements p: %d", categoryId, p))
+
+	// Calc K, where offsetK is random offset to start.
+	offsetK := util.GetRandomNumberFrom(p)
+	s.logger.Info(fmt.Sprintf("[fetchItemsByCategory][%s] Initial offset: %d", categoryId, offsetK))
+
+	i := 0
+	nextOffsetK := 0
+	for nextOffsetK < totalItems {
+		i++
+		nextOffsetK = offsetK + i*p
+		s.logger.Debug(fmt.Sprintf("[fetchItemsByCategory][%s] Next offset: %d  index: %d", categoryId, nextOffsetK, i))
+
+		searchResult, err := s.meliClient.SearchItems(site, query, nextOffsetK, limit)
 
 		if err != nil {
 			s.logger.Warning("[searchItemsByCategory] Error searching items.")
@@ -231,9 +255,7 @@ func (s *Suggester) fetchItemsByCategory(site string, categoryId string) {
 			return
 		}
 
-		s.saveDataSet(searchResult.Results, categoryId, offset)
-
-		offset += limit
+		s.saveDataSet(searchResult.Results, categoryId, nextOffsetK)
 	}
 }
 

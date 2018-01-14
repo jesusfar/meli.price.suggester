@@ -1,19 +1,18 @@
-package api
+package suggester
 
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/jesusfar/meli.price.suggester/suggester"
 	"net/http"
 )
 
 type SuggesterCtrl struct {
-	suggester *suggester.Suggester
+	Suggester *Suggester
 }
 
 func NewSuggesterCtrl() *SuggesterCtrl {
 	s := &SuggesterCtrl{
-		suggester: suggester.NewSuggester(),
+		Suggester: NewSuggester(),
 	}
 
 	return s
@@ -29,7 +28,7 @@ func (s *SuggesterCtrl) SuggestPriceByCategory(c *gin.Context) {
 	}
 
 	// Suggest prices for category
-	result, err := s.suggester.Suggest(categoryId)
+	result, err := s.Suggester.Suggest(categoryId)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, ApiErr{Message: err.Error()})

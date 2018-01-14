@@ -58,3 +58,55 @@ func TestLogger_Warning(t *testing.T) {
 		logger.Debug("My log Debug is not showed.")
 	}
 }
+
+func TestCalcSampleSizeMethod1(t *testing.T) {
+
+	total := 491120
+
+	t.Log("Given a total size: ", total)
+
+	{
+		sampleSize := CalcSampleSizeMethod1(total)
+		t.Log("CalcSampleSizeMethod1 returns: ", sampleSize)
+	}
+
+}
+
+func BenchmarkCalcSampleSizeMethod1(b *testing.B) {
+	total := 491120
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		CalcSampleSizeMethod1(total)
+	}
+}
+
+func TestCalcSampleSizeMethod2(t *testing.T) {
+	total := 491120
+
+	t.Log("Given a total size: ", total)
+
+	{
+		sampleSize := CalcSampleSizeMethod2(total)
+		t.Log("CalcSampleSizeMethod2 returns: ", sampleSize)
+	}
+}
+
+func BenchmarkCalcSampleSizeMethod2(b *testing.B) {
+	total := 491120
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		CalcSampleSizeMethod2(total)
+	}
+}
+
+func TestGetRandomNumberFrom(t *testing.T) {
+	t.Log("Given a number returns a random number")
+	{
+		randomNumber := GetRandomNumberFrom(100)
+		t.Log("Random number: ", randomNumber)
+	}
+}

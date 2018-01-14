@@ -3,18 +3,18 @@ package meli
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jesusfar/meli.price.suggester/util"
 	"github.com/mercadolibre/golang-restclient/rest"
 	"log"
 	"net/http"
 	"os"
-	"github.com/jesusfar/meli.price.suggester/util"
 )
 
 const MELI_API_ENDPOINT = "https://api.mercadolibre.com"
 
 type MeliHttpClient struct {
 	endpoint string
-	logger *util.Logger
+	logger   *util.Logger
 }
 
 func NewMeliHttpClient() *MeliHttpClient {
@@ -27,7 +27,7 @@ func NewMeliHttpClient() *MeliHttpClient {
 
 	client := MeliHttpClient{
 		endpoint: endpoint,
-		logger: util.NewLogger(),
+		logger:   util.NewLogger(),
 	}
 
 	return &client

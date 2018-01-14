@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/jesusfar/meli.price.suggester/api"
 	"github.com/jesusfar/meli.price.suggester/meli"
 	"github.com/jesusfar/meli.price.suggester/suggester"
 	"os"
@@ -26,7 +25,7 @@ Commands:
   help             Help Meli Price Suggester
 
 Examples:
-  meliPriceSugesster fetchDataSet
+  meliPriceSugesster fetch
   meliPriceSugesster train
   meliPriceSugesster serve 3000
   meliPriceSugesster predict MLA70400
@@ -36,7 +35,7 @@ Examples:
 
 func serve() {
 
-	s := api.NewSuggesterCtrl()
+	s := suggester.NewSuggesterCtrl()
 
 	r := gin.Default()
 

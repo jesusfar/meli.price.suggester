@@ -3,7 +3,9 @@ package util
 import (
 	"log"
 	"math"
+	"math/rand"
 	"os"
+	"time"
 )
 
 type LogLevel int
@@ -27,9 +29,7 @@ func NewLogger() *Logger {
 	return &logger
 }
 
-func CalcSampleSize(total int) float64 {
-
-	var n float64
+func CalcSampleSizeMethod1(total int) int {
 
 	// Standard Deviation
 	var o float64 = 0.5
@@ -38,14 +38,43 @@ func CalcSampleSize(total int) float64 {
 	var z float64 = 2.58
 
 	// Limit error acceptable from 1% to 9% . 5% is value standard
-	var e float64 = 0.5
+	var e float64 = 0.1
 
+	// Total size
 	var N float64 = float64(total)
 
 	// Formula to calc representative sample
-	n = (math.Pow(z, 2) * math.Pow(o, 2) * N) / (math.Pow(e, 2)*(N-1) + math.Pow(z, 2)*math.Pow(o, 2))
+	n := (math.Pow(z, 2) * math.Pow(o, 2) * N) / (math.Pow(e, 2)*(N-1) + math.Pow(z, 2)*math.Pow(o, 2))
 
-	return n * 100
+	return int(n)
+}
+
+func CalcSampleSizeMethod2(total int) int {
+
+	// Security of 99%
+	var Z float64 = 2.58
+
+	// Proportion 50%
+	var p float64 = 0.5
+
+	var q float64 = 1 - p
+
+	// Presition 5%
+	var d float64 = 0.05
+
+	// Total poblation
+	var N float64 = float64(total)
+
+	n := (N * math.Pow(Z, 2) * q * q) / (math.Pow(d, 2)*(N-1) + math.Pow(Z, 2)*p*q)
+
+	return int(n)
+}
+
+func GetRandomNumberFrom(limit int) int {
+	s := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(s)
+
+	return r.Intn(100)
 }
 
 func (l *Logger) Info(v ...interface{}) {
