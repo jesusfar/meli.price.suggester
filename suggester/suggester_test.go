@@ -62,7 +62,7 @@ func TestNewSuggester_fetchItemsBySystematicRandomSampling(t *testing.T) {
 
 	suggester := NewSuggester()
 
-	suggester.fetchItemsBySystematicRandomSampling(meli.SITE_MLA, categoryId)
+	suggester.FetchItemsBySystematicRandomSampling(meli.SITE_MLA, categoryId)
 
 	assert.Equal(t, true, directoryExists(DATA_SET_PATH+"/"+categoryId))
 }

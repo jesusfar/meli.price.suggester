@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
+	//"time"
 )
 
 const (
@@ -82,8 +83,7 @@ func (s *Suggester) FetchDataSet(site string) {
 	// Foreach category we need to search items related
 	for _, category := range categories {
 		s.logger.Debug("[FetchDataSet] Fetching items for category: " + category.Id)
-		//go s.fetchItemsByCategory(site, category.Id)
-		go s.fetchItemsBySystematicRandomSampling(site, category.Id)
+		s.FetchItemsBySystematicRandomSampling(site, category.Id)
 	}
 
 	s.logger.Info("[FetchDataSet] Fetching done.")
@@ -204,7 +204,7 @@ func (s *Suggester) GetInMemoryDataTrained() *DataTrained {
 	return s.inMemoryDataTrained
 }
 
-func (s *Suggester) fetchItemsBySystematicRandomSampling(site string, categoryId string) {
+func (s *Suggester) FetchItemsBySystematicRandomSampling(site string, categoryId string) {
 
 	query := "category=" + categoryId
 	offset := 0
@@ -243,15 +243,22 @@ func (s *Suggester) fetchItemsBySystematicRandomSampling(site string, categoryId
 	i := 0
 	nextOffsetK := 0
 	for nextOffsetK < totalItems {
+
 		i++
 		nextOffsetK = offsetK + i*p
-		s.logger.Debug(fmt.Sprintf("[fetchItemsByCategory][%s] Next offset: %d  index: %d", categoryId, nextOffsetK, i))
+		s.logger.Debug(fmt.Sprintf("[fetchItemsByCategory][%s] Next offset: %d  count: %d", categoryId, nextOffsetK, i))
 
-		searchResult, err := s.meliClient.SearchItems(site, query, nextOffsetK, limit)
+		searchResult, err = s.meliClient.SearchItems(site, query, nextOffsetK, limit)
 
 		if err != nil {
-			s.logger.Warning("[searchItemsByCategory] Error searching items.")
+			s.logger.Warning(fmt.Sprintf("[searchItemsByCategory] Error searching items for category: %s", categoryId))
 			s.logger.Debug(err)
+			return
+		}
+
+		// Workaround when results is empty
+		if len(searchResult.Results) == 0 {
+			s.logger.Debug("[searchItemsByCategory] Results is empty.")
 			return
 		}
 

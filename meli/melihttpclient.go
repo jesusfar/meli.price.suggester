@@ -8,9 +8,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 const MELI_API_ENDPOINT = "https://api.mercadolibre.com"
+const MAX_RETRIES = 20
 
 type MeliHttpClient struct {
 	endpoint string
@@ -71,25 +73,40 @@ func (m *MeliHttpClient) GetCategories(site string) ([]Category, error) {
 
 func (m *MeliHttpClient) SearchItems(site string, query string, offset int, limit int) (*SearchItemsResult, error) {
 	var searchItems SearchItemsResult
+	var url string
+	var res *rest.Response
+	var err error
 
-	url := fmt.Sprintf("%s/sites/%s/search?q=%s&offset=%v&limit=%v", m.endpoint, site, query, offset, limit)
+	for i:= MAX_RETRIES; i >= 0; i--  {
 
-	res := rest.Get(url)
+		url = fmt.Sprintf("%s/sites/%s/search?%s&offset=%v&limit=%v", m.endpoint, site, query, offset, limit)
+		m.logger.Debug(url)
 
-	if m.isSuccess(res) {
-		err := json.Unmarshal(res.Bytes(), &searchItems)
+		res = rest.Get(url)
+
+		if !m.isSuccess(res) {
+			m.logger.Debug(fmt.Sprintf("[SearchItems] Retrying to search items... left retries: [%d]", i))
+			time.Sleep(time.Millisecond * 1000)
+			continue
+		}
+
+		m.logger.Debug("[SearchItems] Response is success.")
+		m.logger.Debug(res.String())
+		err = json.Unmarshal(res.Bytes(), &searchItems)
 
 		if err != nil {
+			m.logger.Debug("[SearchItems] Error unmarshaling searchitems")
 			m.logger.Debug(err)
 			return nil, err
 		}
+		m.logger.Debug(searchItems.Results)
 
 		return &searchItems, nil
-	} else {
-		err := MeliClientErr{Message: "Error searching items"}
-		return nil, err
 	}
 
+	// Return error
+	err = MeliClientErr{Message: "Error searching items after 10 tries.."}
+	return nil, err
 }
 
 func (m *MeliHttpClient) isSuccess(res *rest.Response) bool {

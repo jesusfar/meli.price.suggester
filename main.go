@@ -11,24 +11,25 @@ import (
 func printHelp() {
 	fmt.Println(`
 
-MeliPriceSugesster is a tool for predict a price by category
+priceSuggester is a tool for suggest prices given a category Id.
 
-Usage: meliPriceSugesster <command>
+Usage: priceSuggester <command>
 
 Commands:
 
-  fetch            Fetch data set by categories
-  train	           Train the data set
-  suggest          Suggest a price given a category
-  clean            Clean data set and data trained folders
-  serve            Serve a http service
-  help             Help Meli Price Suggester
+  fetch            Fetch data set of items by categories.
+  train	           Train the data set.
+  suggest          Suggest a price given a category.
+  clean            Clean data set and data trained folders.
+  serve            Serve a http service 8080 port.
+  help             Help Meli Price Suggester.
 
 Examples:
-  meliPriceSugesster fetch
-  meliPriceSugesster train
-  meliPriceSugesster serve 3000
-  meliPriceSugesster predict MLA70400
+  priceSuggester fetch
+  priceSuggester fetch MLA1743
+  priceSuggester train
+  priceSuggester serve
+  priceSuggester suggest MLA70400
 
 	`)
 }
@@ -57,7 +58,11 @@ func main() {
 
 	switch args[0] {
 	case suggester.FETCH_DATA_SET:
-		s.FetchDataSet(meli.SITE_MLA)
+		if len(args) == 2 {
+			s.FetchItemsBySystematicRandomSampling(meli.SITE_MLA, args[1])
+		} else {
+			s.FetchDataSet(meli.SITE_MLA)
+		}
 	case suggester.TRAIN_MODEL:
 		s.Train()
 	case suggester.SUGGEST:
