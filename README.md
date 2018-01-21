@@ -4,7 +4,7 @@ Meli price suggester is a tool for suggest prices given a category ID of Mercado
 
 ## Installation
 
-1.- Download and install
+1.- Download
 
 ```
 $ go get github.com/jesusfar/meli.price.suggester
@@ -12,12 +12,27 @@ $ go get github.com/jesusfar/meli.price.suggester
 ``` 
 2.- Install dependencies
 
-This project use go dep, please if you don't have it, you have to install go dep first.
+This project uses go dep, if you don't have it, you have to install go dep first.
 
-Installing dependencies
+```
+$ cd $GOPATH/src/github.com/jesusfar/meli.price.suggester
+```
+
+Install dependencies with:
 
 ```
 $ dep ensure
+```
+3.- Running tests
+
+Run unit test
+```
+$ go test -v ./...
+```
+
+Run benchmark tests
+```
+$ go test -v ./... -bench .
 ```
 ## How to use
 
@@ -33,13 +48,13 @@ then we get a random offset (K) to start the fetching items based on proportion 
 Fetching items for categories
 
 ```
-$ priceSuggester fetch
+$ go run main.go fetch
 
 ```
 Fetching items for specific category.
 
 ```
-$ priceSuggester fetch MLA1743
+$ go run main.go fetch MLA1743
 
 ```
 ### Train the data set
@@ -47,7 +62,7 @@ $ priceSuggester fetch MLA1743
 In order to suggest the prices, we need to train the data set of sampling data items.
 
 ```
-$ priceSuggester train
+$ go run main.go train
 
 ```
 ### Suggesting prices
@@ -55,21 +70,23 @@ $ priceSuggester train
 Finally, we can suggest prices given a category ID. 
 
 ```
-$ priceSuggester suggest MLA1743
+$ go run main.go suggest MLA1743
 
 ```
 ### Serve API
 
 ```
-$ priceSuggester serve
+$ go run main.go serve
 
 ```
-curl -v http://localhost:8080/categories/MLA100028/prices
-
+Test endpoint
+```
+$ curl -v http://localhost:8080/categories/MLA100028/prices
+```
 ### Demo 
-
-$curl -v http://ec2-18-216-251-218.us-east-2.compute.amazonaws.com:8080/categories/MLA100028/prices
-
+```
+$ curl -v http://ec2-18-216-251-218.us-east-2.compute.amazonaws.com:8080/categories/MLA100028/prices
+```
 ### License
 
 MIT license
