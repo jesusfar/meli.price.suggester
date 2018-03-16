@@ -1,13 +1,13 @@
-# Meli Price suggester
+#  Price suggester
 
-Meli price suggester is a tool for suggest prices given a category ID of Mercado Libre Items.
+Price suggester is a tool for suggest prices given a category ID of Mercado Libre Items.
 
 ## Installation
 
 1.- Download
 
 ```
-$ go get github.com/jesusfar/meli.price.suggester
+$ go get github.com/jesusfar/price.suggester
 
 ``` 
 2.- Install dependencies
@@ -15,7 +15,7 @@ $ go get github.com/jesusfar/meli.price.suggester
 This project uses go dep, if you don't have it, you have to install go dep first.
 
 ```
-$ cd $GOPATH/src/github.com/jesusfar/meli.price.suggester
+$ cd $GOPATH/src/github.com/jesusfar/price.suggester
 ```
 
 Install dependencies with:
